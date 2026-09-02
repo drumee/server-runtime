@@ -1,0 +1,8 @@
+{
+  "services": {
+    "missing_permission": {}
+  },
+  "modules": {
+    "public": "../workers/public-worker"
+  }
+}

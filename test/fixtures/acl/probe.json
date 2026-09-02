@@ -1,0 +1,21 @@
+{
+  "services": {
+    "public_status": {
+      "scope": "kernel",
+      "permission": {
+        "src": "anonymous",
+        "fast_check": "public-api"
+      }
+    },
+    "private_status": {
+      "scope": "kernel",
+      "permission": {
+        "src": "read"
+      }
+    }
+  },
+  "modules": {
+    "public": "../workers/public-worker",
+    "private": "../workers/private-worker"
+  }
+}

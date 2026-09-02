@@ -1,0 +1,17 @@
+{
+  "name": "@drumee/server-runtime-extraction",
+  "version": "0.0.0-phase2",
+  "private": true,
+  "description": "Private Phase 2 extraction workspace; not a public package or final repository boundary.",
+  "main": "lib/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "@drumee/server-essentials": "^1.3.6"
+  },
+  "scripts": {
+    "test": "node --test test/**/*.test.js"
+  }
+}
