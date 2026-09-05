@@ -107,6 +107,28 @@ test("frontend plugin resolver preserves the index.json to public path contract"
   assert.throws(() => resolver.resolve("../escape"), (error) => error.code === "INVALID_PLUGIN_NAME");
 });
 
+test("bootstrap.plugin is resolved through the generic ACL Worker path", async () => {
+  const runtimeRoot = path.resolve(__dirname, "..");
+  const value = new DescriptorRegistry({ permissionValue });
+  value.registerDirectory(path.join(runtimeRoot, "acl"));
+  const resolver = new FrontendPluginResolver({
+    roots: [{ directory: fixture("plugins"), publicPrefix: "/-/plugins" }]
+  });
+  const bootstrapWorker = path.join(runtimeRoot, "service/bootstrap.js");
+  delete require.cache[require.resolve(bootstrapWorker)];
+  const dispatcher = new ServiceDispatcher({
+    registry: value,
+    workerOptions: { pluginResolver: resolver }
+  });
+  const result = await dispatcher.dispatch({
+    service: "bootstrap.plugin",
+    session: { isAnonymous: () => true },
+    input: { name: "valid" }
+  });
+  assert.deepEqual(result, { path: "/-/plugins/valid/main-fixture.js" });
+  assert.equal(dispatcher.workers.size, 1);
+});
+
 test("the public-api fast path is explicit and database-free", async () => {
   const decision = await authorizeFastPath({ permission: { src: permissionValue("anonymous"), fast_check: "public-api" } });
   assert.deepEqual(decision, { granted: true, mode: "public-api" });

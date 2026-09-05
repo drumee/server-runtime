@@ -1,0 +1,15 @@
+{
+  "services": {
+    "plugin": {
+      "scope": "kernel",
+      "permission": {
+        "src": "anonymous",
+        "fast_check": "public-api"
+      }
+    }
+  },
+  "modules": {
+    "public": "service/bootstrap",
+    "private": "service/bootstrap"
+  }
+}
