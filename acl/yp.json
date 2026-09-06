@@ -1,0 +1,15 @@
+{
+  "services": {
+    "signin": {
+      "scope": "kernel",
+      "permission": {
+        "src": "anonymous",
+        "fast_check": "public-api"
+      }
+    }
+  },
+  "modules": {
+    "public": "service/yp",
+    "private": "service/yp"
+  }
+}
