@@ -1,4 +1,9 @@
 const assert = require("assert/strict");
+const childProcess = require("child_process");
+const crypto = require("crypto");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const test = require("node:test");
 
 const {
@@ -10,6 +15,8 @@ const {
   createAuthorizer
 } = require("../lib");
 const { scalarFunctionValue } = require("../lib/yellow-page-store");
+
+const root = path.resolve(__dirname, "../../../..");
 
 test("Yellow Page store invokes the historical session_signin and domain_permission objects", async () => {
   const calls = [];
@@ -51,6 +58,21 @@ test("Yellow Page store invokes the historical session_signin and domain_permiss
 test("Yellow Page store adapts the current server-essentials function row shape", () => {
   assert.equal(scalarFunctionValue({ "domain_permission( 'phase4authuser01', 41, 2)": 2 }), 2);
   assert.equal(scalarFunctionValue(2), 2);
+});
+
+test("Phase 4 target SQL retains the historical domain_permission bitmask expression", () => {
+  const historical = fs.readFileSync(
+    path.join(root, "sources/schemas/yellow_page/procedures/domain/permission.sql"),
+    "utf8"
+  );
+  const target = fs.readFileSync(
+    path.join(root, "target/os/schemas/yellow-page-auth/phase4-schema.sql"),
+    "utf8"
+  );
+  const bitmask = /SELECT\s+privilege\s*&\s*_perm\s+FROM\s+privilege/i;
+  assert.match(historical, bitmask);
+  assert.match(target, bitmask);
+  assert.match(target, /RETURN\s+IFNULL\(_res,\s*0\)/i);
 });
 
 test("real-session abstraction accepts credentials, creates regsid and never exposes its value in data", async () => {
@@ -131,4 +153,109 @@ test("scope domain uses domain_permission and does not activate a hub branch", a
   assert.equal(denied.reason, "AUTHENTICATION_REQUIRED");
   assert.deepEqual(deferredHub, { granted: false, mode: "unconfigured" });
   assert.deepEqual(calls, [{ uid: "phase4authuser01", domainId: 41, permission: 2 }]);
+});
+
+test("DomainAuthorizer preserves mandatory src and optional dest check_domain semantics", async () => {
+  const calls = [];
+  const authorizer = new DomainAuthorizer({
+    store: {
+      async domainPermission(uid, domainId, permission) {
+        calls.push({ uid, domainId, permission });
+        return new Map([[2, 2], [4, 4], [8, 0]]).get(permission);
+      }
+    }
+  });
+  const session = {
+    isAnonymous: () => false,
+    identity: () => ({ id: "phase4authuser01", domainId: 41 })
+  };
+  const cases = [
+    {
+      name: "no src or dest",
+      permission: { scope: "domain" },
+      granted: false,
+      reason: "DOMAIN_SOURCE_REQUIRED",
+      requested: []
+    },
+    {
+      name: "dest only",
+      permission: { scope: "domain", dest: 4 },
+      granted: false,
+      reason: "DOMAIN_SOURCE_REQUIRED",
+      requested: []
+    },
+    {
+      name: "src allowed with no dest",
+      permission: { scope: "domain", src: 2 },
+      granted: true,
+      requested: [2]
+    },
+    {
+      name: "src denied with no dest",
+      permission: { scope: "domain", src: 8 },
+      granted: false,
+      reason: "DOMAIN_PERMISSION_DENIED",
+      requested: [8]
+    },
+    {
+      name: "src and dest allowed",
+      permission: { scope: "domain", src: 2, dest: 4 },
+      granted: true,
+      requested: [2, 4]
+    },
+    {
+      name: "src allowed and dest denied",
+      permission: { scope: "domain", src: 2, dest: 8 },
+      granted: false,
+      reason: "DOMAIN_PERMISSION_DENIED",
+      requested: [2, 8]
+    },
+    {
+      name: "src denied and dest allowed",
+      permission: { scope: "domain", src: 8, dest: 4 },
+      granted: false,
+      reason: "DOMAIN_PERMISSION_DENIED",
+      requested: [8]
+    }
+  ];
+
+  for (const scenario of cases) {
+    calls.length = 0;
+    const result = await authorizer.authorize({ permission: scenario.permission, session });
+    assert.equal(result.granted, scenario.granted, scenario.name);
+    assert.equal(result.reason, scenario.reason, scenario.name);
+    assert.deepEqual(calls.map(({ permission }) => permission), scenario.requested, scenario.name);
+  }
+});
+
+test("Phase 4 fixture injects only a shell-derived SHA-512 fingerprint into SQL", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "phase4-fixture-"));
+  const capture = path.join(directory, "fixture.sql");
+  const mariadb = path.join(directory, "mariadb");
+  const password = "fixture-password-with-'sql-sensitive-characters";
+  const fingerprint = crypto.createHash("sha512").update(password).digest("hex");
+  const fixture = path.join(root, "target/os/schemas/yellow-page-auth/phase4-fixture.sh");
+
+  fs.writeFileSync(mariadb, "#!/bin/sh\ncat > \"$PHASE4_FIXTURE_SQL_CAPTURE\"\n");
+  fs.chmodSync(mariadb, 0o755);
+  try {
+    const result = childProcess.spawnSync("bash", [fixture], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        MARIADB_DATABASE: "yp",
+        MARIADB_ROOT_PASSWORD: "fixture-root-password",
+        PHASE4_TEST_PASSWORD: password,
+        PHASE4_FIXTURE_SQL_CAPTURE: capture,
+        PATH: `${directory}:${process.env.PATH}`
+      }
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const sql = fs.readFileSync(capture, "utf8");
+    assert.equal(sql.includes(password), false);
+    assert.equal(sql.includes(fingerprint), true);
+    assert.doesNotMatch(sql, /SET @phase4_test_password/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
