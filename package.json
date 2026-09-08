@@ -1,8 +1,8 @@
 {
   "name": "@drumee/server-runtime-extraction",
-  "version": "0.0.0-phase2",
+  "version": "0.0.0-phase4.4",
   "private": true,
-  "description": "Private Phase 2 extraction workspace; not a public package or final repository boundary.",
+  "description": "Private Phase 4.4 runtime extraction workspace; not a public package or final repository boundary.",
   "main": "lib/index.js",
   "type": "commonjs",
   "engines": {
@@ -10,6 +10,9 @@
   },
   "peerDependencies": {
     "@drumee/server-essentials": "^1.3.6"
+  },
+  "dependencies": {
+    "websocket": "1.0.35"
   },
   "scripts": {
     "test": "node --test test/**/*.test.js"
