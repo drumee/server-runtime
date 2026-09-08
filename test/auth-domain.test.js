@@ -11,6 +11,7 @@ const {
   KernelSession,
   SESSION_COOKIE,
   SessionManager,
+  SESSION_SELECTOR_HEADER,
   YellowPageStore,
   createAuthorizer
 } = require("../lib");
@@ -140,6 +141,73 @@ test("session manager keeps resolved anonymous and authenticated regsid contexts
   assert.equal(anonymous.sid, "anonymous-session-id");
   assert.equal(anonymous.isAnonymous(), true);
   assert.equal(rejected.isAnonymous(), true);
+});
+
+test("historical x-param authorization bridge validates session context and rejects conflicts", async () => {
+  const manager = new SessionManager({
+    store: {
+      async signin() {},
+      async resolveSession() { return null; },
+      async resolveSessionContext(sid) {
+        if (sid === "authorized-session-0001") return { session_id: sid, id: "phase4authuser01", domain_id: 41, domain: "phase4.kernel.test" };
+        if (sid === "anonymous-session-0001") return { session_id: sid, status: "new" };
+        return null;
+      }
+    }
+  });
+  const headers = {
+    [SESSION_SELECTOR_HEADER]: "regsid",
+    "x-param-regsid": "authorized-session-0001"
+  };
+  const authenticated = await manager.fromRequest({ headers });
+  assert.equal(authenticated.contextSource, "authorization");
+  assert.equal(authenticated.hasCookieContext, false);
+  assert.equal(authenticated.sid, "authorized-session-0001");
+  assert.equal(authenticated.identity().id, "phase4authuser01");
+
+  const encoded = await manager.fromRequest({
+    headers: { [SESSION_SELECTOR_HEADER]: "regsid", "x-param-regsid": "authorized%2Dsession%2D0001" }
+  });
+  assert.equal(encoded.sid, "authorized-session-0001");
+
+  const directHistoricalFallback = await manager.fromRequest({
+    headers: { "x-param-regsid": "authorized-session-0001" }
+  });
+  assert.equal(directHistoricalFallback.sid, "authorized-session-0001");
+
+  const standardAuthorizationOnly = await manager.fromRequest({
+    headers: { authorization: "Bearer authorized-session-0001" }
+  });
+  assert.equal(standardAuthorizationOnly.sid, undefined);
+
+  const anonymous = await manager.fromRequest({
+    headers: { [SESSION_SELECTOR_HEADER]: "regsid", "x-param-regsid": "anonymous-session-0001" }
+  });
+  assert.equal(anonymous.contextSource, "authorization");
+  assert.equal(anonymous.isAnonymous(), true);
+
+  const matching = await manager.fromRequest({
+    headers: { cookie: "regsid=authorized-session-0001", ...headers }
+  });
+  assert.equal(matching.contextSource, "authorization");
+  assert.equal(matching.hasCookieContext, true);
+
+  await assert.rejects(
+    manager.fromRequest({ headers: { cookie: "regsid=authorized-session-0001", [SESSION_SELECTOR_HEADER]: "regsid", "x-param-regsid": "anonymous-session-0001" } }),
+    (error) => error.code === "SESSION_CONTEXT_CONFLICT"
+  );
+  await assert.rejects(
+    manager.fromRequest({ headers: { [SESSION_SELECTOR_HEADER]: "regsid", "x-param-regsid": "unknown-session-000000" } }),
+    (error) => error.code === "SESSION_CONTEXT_INVALID"
+  );
+  await assert.rejects(
+    manager.fromRequest({ headers: { [SESSION_SELECTOR_HEADER]: "hub-session", "x-param-hub-session": "authorized-session-0001" } }),
+    (error) => error.code === "SESSION_CONTEXT_INVALID"
+  );
+  await assert.rejects(
+    manager.fromRequest({ headers: { [SESSION_SELECTOR_HEADER]: "regsid", "x-param-regsid": "not-a-valid-session" } }),
+    (error) => error.code === "SESSION_CONTEXT_INVALID"
+  );
 });
 
 test("bootstrap transport authorization ensures regsid then stores a non-regsid OTAK", async () => {

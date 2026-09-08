@@ -8,7 +8,7 @@ migration/version manager; Phase 4.5 owns that exportability work.
 | --- | --- | --- | --- | --- | --- |
 | `yellow-page/phase4.4-websocket.sql::authn` | `sources/schemas/yellow_page/tables/authn.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Persist opaque one-time OTAK → runtime session associations | Phase 4 `cookie`; `authn_store` | Hub, MFS, guest/share policy |
 | `session_ensure` | `sources/server-core/lib/input.js::{validCookie,_authorization}` plus `sources/schemas/yellow_page/procedures/session/session_check_cookie.sql` | `bf7c396b14614f247507f771f72e98184ed931b4`; `cb838e255600a4ec3797dc7ac13659ad9d187421` | Allocate or retain a persisted anonymous/authenticated runtime `regsid` context | `cookie`, `uniqueId` | Hub lookup, MFS token, organisation/support, DMZ/guest policy |
-| `authn_store` | `sources/schemas/yellow_page/procedures/session/authorization/authn_store.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Persist the historical `token,value` OTAK record | `authn` | HTTP Authorization/Hub-area policy |
+| `authn_store` | `sources/schemas/yellow_page/procedures/session/authorization/authn_store.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Persist the historical `token,value` OTAK record | `authn` | HTTP header parsing, Hub-area policy |
 | `yellow-page/phase4.4-websocket.sql::socket` | `sources/schemas/yellow_page/tables/socket.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Socket-to-session binding for both anonymous and authenticated contexts | Phase 4 `cookie`, optional `entity` | Hub, MFS, conference, presence |
 | `socket_bind` | `sources/schemas/yellow_page/procedures/session/socket_bind.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Resolve and consume OTAK, then bind its authoritative session to a socket ID | `authn`, `socket`, `cookie`, optional `entity` | guest/nobody, endpoint/location/state, DMZ/profile/quota branches |
 | `socket_get` | `sources/schemas/yellow_page/procedures/session/socket/socket_get.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Retrieve a minimal socket/session record for generic runtime diagnostics | `socket` | Profile, quota, DMZ and Hub lookup |
@@ -23,3 +23,6 @@ Hub, MFS, organisation, support, DMZ and guest closure. `socket_bind` consumes
 the OTAK once, so OTAKs have no independent expiry in this historical contract;
 an unconsumed record persists until cleanup rather than being redesigned here.
 No object references Hub, MFS, Finder, Desktop, Window Manager or a Team schema.
+The Phase 4.4 cross-site corrective pass reuses this complete closure: its
+historical `x-param-*` header parser validates against the existing cookie
+context query and adds no table, function or procedure.
