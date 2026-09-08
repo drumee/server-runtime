@@ -6,6 +6,13 @@
         "src": "anonymous",
         "fast_check": "public-api"
       }
+    },
+    "authn": {
+      "scope": "domain",
+      "permission": {
+        "src": "anyone",
+        "fast_check": "public-api"
+      }
     }
   },
   "modules": {

@@ -24,9 +24,12 @@ class FakeConnection extends EventEmitter {
 }
 
 class FakeRequest {
-  constructor({ protocol = "service", cookie = "regsid=real-session" } = {}) {
-    this.httpRequest = { headers: { "sec-websocket-protocol": protocol, cookie } };
-    this.origin = "http://kernel.test";
+  constructor({ protocol = "service", token = "valid-otak", origin = "http://kernel.test", host = "kernel.test", cookie } = {}) {
+    this.httpRequest = {
+      url: token == null ? "/-/websocket/" : `/-/websocket/?otak=${encodeURIComponent(token)}`,
+      headers: { "sec-websocket-protocol": protocol, host, ...(cookie ? { cookie } : {}) }
+    };
+    this.origin = origin;
     this.rejected = null;
     this.connection = new FakeConnection();
   }
@@ -67,9 +70,9 @@ function socketStore() {
   const calls = { bind: [], free: [], refresh: [] };
   return {
     calls,
-    async bindSocket({ id, sid }) {
-      calls.bind.push({ id, sid });
-      return { socket_id: id, session_id: sid };
+    async bindSocket({ id, token }) {
+      calls.bind.push({ id, token });
+      return { socket_id: id, session_id: token === "anonymous-otak" ? "anonymous-session" : "real-session" };
     },
     async freeSocket(id) { calls.free.push(id); },
     async refreshSockets(ids) { calls.refresh.push(ids); },
@@ -79,10 +82,11 @@ function socketStore() {
 
 function sessionManager() {
   return {
-    async fromRequest(request) {
-      const authenticated = request.headers.cookie === "regsid=real-session";
+    async fromOtak(token) {
+      if (!/^(valid-otak|anonymous-otak)$/.test(token)) return null;
+      const authenticated = token === "valid-otak";
       return {
-        sid: authenticated ? "real-session" : null,
+        sid: authenticated ? "real-session" : "anonymous-session",
         isAnonymous: () => !authenticated,
         identity: () => authenticated ? { id: "phase4authuser01", domainId: 41 } : null
       };
@@ -90,7 +94,7 @@ function sessionManager() {
   };
 }
 
-test("WebSocket router requires a real session, preserves service protocol and targets only bound sockets", async () => {
+test("WebSocket router requires an OTAK, preserves service protocol and targets only bound sockets", async () => {
   FakeRedisStore.reset();
   const store = socketStore();
   const logs = [];
@@ -105,19 +109,27 @@ test("WebSocket router requires a real session, preserves service protocol and t
   });
   await router.start();
   try {
-    const missingSession = new FakeRequest({ cookie: "" });
-    assert.equal(await router.createConnection(missingSession), null);
-    assert.equal(missingSession.rejected.code, 4001);
+    const missingToken = new FakeRequest({ token: null });
+    assert.equal(await router.createConnection(missingToken), null);
+    assert.equal(missingToken.rejected.code, 401);
+
+    const invalidToken = new FakeRequest({ token: "invalid-otak" });
+    assert.equal(await router.createConnection(invalidToken), null);
+    assert.equal(invalidToken.rejected.code, 401);
 
     const unsupported = new FakeRequest({ protocol: "ping" });
     assert.equal(await router.createConnection(unsupported), null);
-    assert.equal(unsupported.rejected.code, 4000);
+    assert.equal(unsupported.rejected.code, 400);
+
+    const foreignOrigin = new FakeRequest({ origin: "https://foreign.example", host: "kernel.test" });
+    assert.equal(await router.createConnection(foreignOrigin), null);
+    assert.equal(foreignOrigin.rejected.code, 403);
 
     const request = new FakeRequest();
     const record = await router.createConnection(request);
     assert.equal(request.accepted, "service");
     assert.match(record.id, /^[a-f0-9]{32}$/);
-    assert.deepEqual(store.calls.bind, [{ id: record.id, sid: "real-session" }]);
+    assert.deepEqual(store.calls.bind, [{ id: record.id, token: "valid-otak" }]);
     assert.deepEqual(request.connection.sent[0], {
       service: "sys.hello",
       data: { socket_id: record.id, user: { id: "phase4authuser01" } }
@@ -142,6 +154,34 @@ test("WebSocket router requires a real session, preserves service protocol and t
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(store.calls.free, [record.id]);
     assert.ok(logs.some((entry) => entry.includes("kernel push delivered hello.push sockets=1")));
+  } finally {
+    await router.stop();
+  }
+});
+
+test("WebSocket router accepts anonymous and configured external OTAK connections without a regsid credential", async () => {
+  FakeRedisStore.reset();
+  const store = socketStore();
+  const router = new WebSocketPushRouter({
+    httpServer: http.createServer(),
+    sessionManager: sessionManager(),
+    socketStore: store,
+    redisStore: FakeRedisStore,
+    WebSocketServer: FakeWebSocketServer,
+    logger: { info() {}, warn() {} },
+    allowedOrigins: ["https://approved.example"]
+  });
+  await router.start();
+  try {
+    const anonymous = new FakeRequest({ token: "anonymous-otak", cookie: "regsid=must-not-be-authoritative" });
+    const anonymousRecord = await router.createConnection(anonymous);
+    assert.equal(anonymousRecord.sessionId, "anonymous-session");
+    assert.deepEqual(anonymous.connection.sent[0].data.user, {});
+    assert.equal(anonymous.httpRequest.url.includes("regsid"), false);
+
+    const external = new FakeRequest({ token: "valid-otak", origin: "https://approved.example", host: "runtime.example" });
+    const externalRecord = await router.createConnection(external);
+    assert.equal(externalRecord.sessionId, "real-session");
   } finally {
     await router.stop();
   }

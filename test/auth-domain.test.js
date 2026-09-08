@@ -40,9 +40,14 @@ test("Yellow Page store invokes the historical session_signin and domain_permiss
   const login = await store.signin({ uid: "phase4-auth@kernel.test", password: "test-password" });
   const session = await store.resolveSession("session-phase4-0001");
   const permission = await store.domainPermission("phase4authuser01", 41, 2);
+  const ensured = await store.ensureSession();
+  await store.storeAuthn("abcdefghijklmnopqrstuv", { id: "session-phase4-0001", type: "session" });
+  const otak = await store.resolveOtak("abcdefghijklmnopqrstuv");
   assert.equal(login.session_id, "session-phase4-0001");
   assert.equal(session.domain_id, 41);
   assert.equal(permission, 2);
+  assert.equal(ensured.session_id, "session-phase4-0001");
+  assert.equal(otak.domain_id, 41);
   assert.deepEqual(calls[0], {
     kind: "procedure",
     name: "session_signin",
@@ -52,6 +57,12 @@ test("Yellow Page store invokes the historical session_signin and domain_permiss
     kind: "function",
     name: "domain_permission",
     args: ["phase4authuser01", 41, 2]
+  });
+  assert.deepEqual(calls[3], { kind: "procedure", name: "session_ensure", input: null });
+  assert.deepEqual(calls[4], {
+    kind: "procedure",
+    name: "authn_store",
+    input: "abcdefghijklmnopqrstuv"
   });
 });
 
@@ -106,21 +117,53 @@ test("real-session abstraction accepts credentials, creates regsid and never exp
   });
 });
 
-test("session manager accepts only a resolved historical regsid cookie", async () => {
+test("session manager keeps resolved anonymous and authenticated regsid contexts distinct", async () => {
   const manager = new SessionManager({
     store: {
       async signin() {},
       async resolveSession(sid) {
         if (sid !== "accepted-session-id") return null;
         return { id: "phase4authuser01", domain_id: 41, domain: "phase4.kernel.test" };
+      },
+      async resolveSessionContext(sid) {
+        if (sid === "accepted-session-id") return { session_id: sid, id: "phase4authuser01", domain_id: 41, domain: "phase4.kernel.test" };
+        if (sid === "anonymous-session-id") return { session_id: sid, status: "new" };
+        return null;
       }
     }
   });
   const accepted = await manager.fromRequest({ headers: { cookie: "other=1; regsid=accepted-session-id" } });
+  const anonymous = await manager.fromRequest({ headers: { cookie: "regsid=anonymous-session-id" } });
   const rejected = await manager.fromRequest({ headers: { cookie: "regsid=unknown-session-id" } });
   assert.equal(accepted.isAnonymous(), false);
   assert.equal(accepted.identity().id, "phase4authuser01");
+  assert.equal(anonymous.sid, "anonymous-session-id");
+  assert.equal(anonymous.isAnonymous(), true);
   assert.equal(rejected.isAnonymous(), true);
+});
+
+test("bootstrap transport authorization ensures regsid then stores a non-regsid OTAK", async () => {
+  const calls = [];
+  const store = {
+    async signin() {},
+    async resolveSession() { return null; },
+    async ensureSession(sid) {
+      calls.push({ operation: "ensure", sid });
+      return { session_id: "new-runtime-session-000000000000", status: "new" };
+    },
+    async storeAuthn(token, value) {
+      calls.push({ operation: "authn_store", token, value });
+    }
+  };
+  const session = new KernelSession({ store });
+  const result = await session.authn();
+  assert.match(result.token, /^[A-Za-z0-9_-]{22}$/);
+  assert.notEqual(result.token, session.sid);
+  assert.equal(session.sid, "new-runtime-session-000000000000");
+  assert.match(session.responseHeaders()["set-cookie"], /^regsid=/);
+  assert.deepEqual(calls[0], { operation: "ensure", sid: undefined });
+  assert.deepEqual(calls[1].value, { id: session.sid, type: "session" });
+  assert.equal(calls[1].token, result.token);
 });
 
 test("scope domain uses domain_permission and does not activate a hub branch", async () => {
@@ -153,6 +196,24 @@ test("scope domain uses domain_permission and does not activate a hub branch", a
   assert.equal(denied.reason, "AUTHENTICATION_REQUIRED");
   assert.deepEqual(deferredHub, { granted: false, mode: "unconfigured" });
   assert.deepEqual(calls, [{ uid: "phase4authuser01", domainId: 41, permission: 2 }]);
+});
+
+test("bootstrap.authn remains a Domain-scoped public transport fast path without a business privilege", async () => {
+  let domainChecks = 0;
+  const authorizer = createAuthorizer({
+    domainAuthorizer: {
+      async authorize() {
+        domainChecks++;
+        return { granted: false, mode: "domain" };
+      }
+    }
+  });
+  const result = await authorizer({
+    permission: { scope: "domain", src: 0, fast_check: "public-api" },
+    session: { isAnonymous: () => true }
+  });
+  assert.deepEqual(result, { granted: true, mode: "public-api" });
+  assert.equal(domainChecks, 0);
 });
 
 test("DomainAuthorizer preserves mandatory src and optional dest check_domain semantics", async () => {

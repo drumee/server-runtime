@@ -6,8 +6,8 @@
     "target/os/schemas/yellow-page-auth/phase4-schema.sql"
   ],
   "objects": {
-    "tables": ["socket"],
-    "procedures": ["socket_bind", "socket_free", "socket_list_session", "socket_refresh"]
+    "tables": ["authn", "socket"],
+    "procedures": ["session_ensure", "authn_store", "socket_bind", "socket_get", "socket_free", "socket_list_session", "socket_refresh"]
   },
-  "excluded": ["Hub", "MFS", "conference", "presence", "authn"]
+  "excluded": ["Hub", "MFS", "conference", "presence"]
 }

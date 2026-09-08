@@ -129,6 +129,26 @@ test("bootstrap.plugin is resolved through the generic ACL Worker path", async (
   assert.equal(dispatcher.workers.size, 1);
 });
 
+test("bootstrap.authn is Domain-scoped public transport setup for anonymous runtime sessions", async () => {
+  const runtimeRoot = path.resolve(__dirname, "..");
+  const value = new DescriptorRegistry({ permissionValue });
+  value.registerDirectory(path.join(runtimeRoot, "acl"));
+  const resolved = value.resolve("bootstrap.authn", { isAnonymous: () => true });
+  assert.equal(resolved.permission.scope, "domain");
+  assert.equal(resolved.permission.src, permissionValue("anyone"));
+  assert.equal(resolved.permission.fast_check, "public-api");
+  const dispatcher = new ServiceDispatcher({ registry: value });
+  const result = await dispatcher.dispatch({
+    service: "bootstrap.authn",
+    session: {
+      isAnonymous: () => true,
+      async authn() { return { token: "abcdefghijklmnopqrstuv" }; }
+    },
+    input: {}
+  });
+  assert.deepEqual(result, { token: "abcdefghijklmnopqrstuv" });
+});
+
 test("the public-api fast path is explicit and database-free", async () => {
   const decision = await authorizeFastPath({ permission: { src: permissionValue("anonymous"), fast_check: "public-api" } });
   assert.deepEqual(decision, { granted: true, mode: "public-api" });
