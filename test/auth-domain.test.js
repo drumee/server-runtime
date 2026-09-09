@@ -9,6 +9,7 @@ const test = require("node:test");
 const {
   DomainAuthorizer,
   KernelSession,
+  NOBODY_UID,
   SESSION_COOKIE,
   SessionManager,
   SESSION_SELECTOR_HEADER,
@@ -18,6 +19,36 @@ const {
 const { scalarFunctionValue } = require("../lib/yellow-page-store");
 
 const root = path.resolve(__dirname, "../../../..");
+
+function nobodyContext(session_id, status = "new") {
+  return {
+    session_id,
+    uid: NOBODY_UID,
+    id: NOBODY_UID,
+    domain_id: 41,
+    domain: "phase4.kernel.test",
+    ident: "nobody",
+    nobody_id: NOBODY_UID,
+    guest_id: "phase4guest00001",
+    status,
+    signed_in: 0
+  };
+}
+
+function drumateContext(session_id, { status = "ok", signed_in = 1 } = {}) {
+  return {
+    session_id,
+    uid: "phase4authuser01",
+    id: "phase4authuser01",
+    domain_id: 41,
+    domain: "phase4.kernel.test",
+    ident: "phase4-auth",
+    nobody_id: NOBODY_UID,
+    guest_id: "phase4guest00001",
+    status,
+    signed_in
+  };
+}
 
 test("Yellow Page store invokes the historical session_signin and domain_permission objects", async () => {
   const calls = [];
@@ -90,13 +121,21 @@ test("Phase 4 target SQL retains the historical domain_permission bitmask expres
 test("real-session abstraction accepts credentials, creates regsid and never exposes its value in data", async () => {
   const calls = [];
   const store = {
+    async ensureSession(sid) {
+      calls.push({ ensure: sid });
+      return nobodyContext("session-phase4-0001");
+    },
     async signin(input) {
       calls.push(input);
       return { status: "ok", id: "phase4authuser01", session_id: "session-phase4-0001" };
     },
     async resolveSession(sid) {
       assert.equal(sid, "session-phase4-0001");
-      return { id: "phase4authuser01", domain_id: 41, domain: "phase4.kernel.test" };
+      return drumateContext(sid);
+    },
+    async resolveSessionContext(sid) {
+      assert.equal(sid, "session-phase4-0001");
+      return calls.some((entry) => entry && entry.uid) ? drumateContext(sid) : nobodyContext(sid);
     }
   };
   const session = new KernelSession({ store });
@@ -109,12 +148,13 @@ test("real-session abstraction accepts credentials, creates regsid and never exp
   });
   assert.equal(Object.hasOwn(result, "session_id"), false);
   assert.match(session.responseHeaders()["set-cookie"], new RegExp(`^${SESSION_COOKIE}=`));
-  assert.deepEqual(calls[0], {
+  assert.deepEqual(calls[0], { ensure: undefined });
+  assert.deepEqual(calls[1], {
     uid: "phase4-auth@kernel.test",
     username: undefined,
     password: "test-password",
     host: undefined,
-    sid: undefined
+    sid: "session-phase4-0001"
   });
 });
 
@@ -127,8 +167,8 @@ test("session manager keeps resolved anonymous and authenticated regsid contexts
         return { id: "phase4authuser01", domain_id: 41, domain: "phase4.kernel.test" };
       },
       async resolveSessionContext(sid) {
-        if (sid === "accepted-session-id") return { session_id: sid, id: "phase4authuser01", domain_id: 41, domain: "phase4.kernel.test" };
-        if (sid === "anonymous-session-id") return { session_id: sid, status: "new" };
+        if (sid === "accepted-session-id") return drumateContext(sid);
+        if (sid === "anonymous-session-id") return nobodyContext(sid);
         return null;
       }
     }
@@ -149,8 +189,8 @@ test("historical x-param authorization bridge validates session context and reje
       async signin() {},
       async resolveSession() { return null; },
       async resolveSessionContext(sid) {
-        if (sid === "authorized-session-0001") return { session_id: sid, id: "phase4authuser01", domain_id: 41, domain: "phase4.kernel.test" };
-        if (sid === "anonymous-session-0001") return { session_id: sid, status: "new" };
+        if (sid === "authorized-session-0001") return drumateContext(sid);
+        if (sid === "anonymous-session-0001") return nobodyContext(sid);
         return null;
       }
     }
@@ -217,8 +257,9 @@ test("bootstrap transport authorization ensures regsid then stores a non-regsid 
     async resolveSession() { return null; },
     async ensureSession(sid) {
       calls.push({ operation: "ensure", sid });
-      return { session_id: "new-runtime-session-000000000000", status: "new" };
+      return nobodyContext("new-runtime-session-000000000000");
     },
+    async resolveSessionContext(sid) { return nobodyContext(sid); },
     async storeAuthn(token, value) {
       calls.push({ operation: "authn_store", token, value });
     }
@@ -232,6 +273,102 @@ test("bootstrap transport authorization ensures regsid then stores a non-regsid 
   assert.deepEqual(calls[0], { operation: "ensure", sid: undefined });
   assert.deepEqual(calls[1].value, { id: session.sid, type: "session" });
   assert.equal(calls[1].token, result.token);
+});
+
+test("session principals keep nobody, guest, OTP and authentication state distinct", async () => {
+  const contexts = new Map([
+    ["anonymous-session-0001", nobodyContext("anonymous-session-0001")],
+    ["otp-session-0000000001", drumateContext("otp-session-0000000001", { status: "otp", signed_in: 0 })],
+    ["guest-session-00000001", {
+      session_id: "guest-session-00000001",
+      uid: "phase4guest00001",
+      id: "phase4guest00001",
+      domain_id: 41,
+      domain: "phase4.kernel.test",
+      ident: "guest",
+      nobody_id: NOBODY_UID,
+      guest_id: "phase4guest00001",
+      status: "guest",
+      signed_in: 0
+    }],
+    ["system-session-0000001", {
+      session_id: "system-session-0000001",
+      uid: "phase4system0001",
+      id: "phase4system0001",
+      domain_id: 41,
+      domain: "phase4.kernel.test",
+      ident: "system",
+      nobody_id: NOBODY_UID,
+      guest_id: "phase4guest00001",
+      status: "system",
+      signed_in: 0
+    }]
+  ]);
+  const manager = new SessionManager({
+    store: {
+      async signin() {},
+      async resolveSession(sid) { return contexts.get(sid) || null; },
+      async resolveSessionContext(sid) { return contexts.get(sid) || null; }
+    }
+  });
+
+  const anonymous = await manager.fromSessionId("anonymous-session-0001");
+  const otp = await manager.fromSessionId("otp-session-0000000001");
+  const guest = await manager.fromSessionId("guest-session-00000001");
+  const system = await manager.fromSessionId("system-session-0000001");
+  assert.equal(anonymous.identity().id, NOBODY_UID);
+  assert.equal(anonymous.principal().kind, "nobody");
+  assert.equal(anonymous.isAnonymous(), true);
+  assert.equal(anonymous.isAuthenticated(), false);
+  assert.equal(otp.identity().id, "phase4authuser01");
+  assert.equal(otp.principal().kind, "drumate");
+  assert.equal(otp.isAnonymous(), false);
+  assert.equal(otp.isAuthenticated(), false);
+  assert.equal(otp.status(), "otp");
+  assert.equal(guest.identity().id, "phase4guest00001");
+  assert.equal(guest.isGuest(), true);
+  assert.notEqual(guest.identity().id, anonymous.identity().id);
+  assert.equal(system.principal().kind, "system");
+  assert.notEqual(system.identity().id, anonymous.identity().id);
+});
+
+test("legacy NULL uid contexts are repaired to the provisioned nobody principal without resetting OTP", async () => {
+  let value = { session_id: "legacy-session-0000001", status: "new" };
+  const store = {
+    async signin() {},
+    async resolveSession() { return value; },
+    async resolveSessionContext() { return value; },
+    async ensureSession(sid) {
+      assert.equal(sid, "legacy-session-0000001");
+      value = nobodyContext(sid);
+      return value;
+    }
+  };
+  const manager = new SessionManager({ store });
+  const repaired = await manager.fromSessionId("legacy-session-0000001");
+  assert.equal(repaired.identity().id, NOBODY_UID);
+  assert.equal(repaired.isAnonymous(), true);
+
+  const otp = drumateContext("legacy-session-0000001", { status: "otp", signed_in: 0 });
+  value = otp;
+  const preserved = await manager.fromSessionId("legacy-session-0000001");
+  assert.equal(preserved.identity().id, "phase4authuser01");
+  assert.equal(preserved.isAuthenticated(), false);
+});
+
+test("Domain authorization requires signed-in state even when an OTP session has a principal", async () => {
+  const calls = [];
+  const authorizer = new DomainAuthorizer({
+    store: { async domainPermission(...args) { calls.push(args); return 2; } }
+  });
+  const otp = {
+    isAnonymous: () => false,
+    isAuthenticated: () => false,
+    identity: () => ({ id: "phase4authuser01", domainId: 41 })
+  };
+  const result = await authorizer.authorize({ permission: { scope: "domain", src: 2 }, session: otp });
+  assert.deepEqual(result, { granted: false, mode: "domain", reason: "AUTHENTICATION_REQUIRED" });
+  assert.deepEqual(calls, []);
 });
 
 test("scope domain uses domain_permission and does not activate a hub branch", async () => {
