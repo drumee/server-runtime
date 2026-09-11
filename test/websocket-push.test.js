@@ -72,6 +72,7 @@ function socketStore() {
     calls,
     async bindSocket({ id, token }) {
       calls.bind.push({ id, token });
+      if (!/^(valid-otak|anonymous-otak)$/.test(token)) return { failed: 1 };
       return { socket_id: id, session_id: token === "anonymous-otak" ? "anonymous-session" : "real-session" };
     },
     async freeSocket(id) { calls.free.push(id); },
@@ -82,11 +83,11 @@ function socketStore() {
 
 function sessionManager() {
   return {
-    async fromOtak(token) {
-      if (!/^(valid-otak|anonymous-otak)$/.test(token)) return null;
-      const authenticated = token === "valid-otak";
+    async fromSessionId(sid) {
+      if (!/^(real-session|anonymous-session)$/.test(sid)) return null;
+      const authenticated = sid === "real-session";
       return {
-        sid: authenticated ? "real-session" : "anonymous-session",
+        sid,
         isAnonymous: () => !authenticated,
         identity: () => authenticated ? { id: "phase4authuser01", domainId: 41 } : null
       };
@@ -129,7 +130,7 @@ test("WebSocket router requires an OTAK, preserves service protocol and targets 
     const record = await router.createConnection(request);
     assert.equal(request.accepted, "service");
     assert.match(record.id, /^[a-f0-9]{32}$/);
-    assert.deepEqual(store.calls.bind, [{ id: record.id, token: "valid-otak" }]);
+    assert.deepEqual(store.calls.bind.at(-1), { id: record.id, token: "valid-otak" });
     assert.deepEqual(request.connection.sent[0], {
       service: "sys.hello",
       data: { socket_id: record.id, user: { id: "phase4authuser01" } }

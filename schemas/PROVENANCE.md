@@ -19,10 +19,15 @@ migration/version manager; Phase 4.5 owns that exportability work.
 `authn_store(token, value)` and `socket_bind(args)` retain the historical
 OTAK shape. The target intentionally narrows `session_check_cookie` to
 `session_ensure`: it allocates/reuses only a cookie context and excludes its
-Hub, MFS, organisation, support, DMZ and guest closure. `socket_bind` consumes
-the OTAK once, so OTAKs have no independent expiry in this historical contract;
-an unconsumed record persists until cleanup rather than being redesigned here.
-No object references Hub, MFS, Finder, Desktop, Window Manager or a Team schema.
-The Phase 4.4 cross-site corrective pass reuses this complete closure: its
-historical `x-param-*` header parser validates against the existing cookie
-context query and adds no table, function or procedure.
+Hub, MFS, organisation, support, DMZ and guest closure. The target adds a
+60-second expiry and an atomic `SELECT … FOR UPDATE` claim in `socket_bind`;
+one OTAK can bind exactly one socket. The same schema file contains the
+idempotent `e8e7bac8e` upgrade: it invalidates pre-`ctime` OTAKs, repairs null
+cookie/socket UIDs to a verified provisioned nobody principal where possible,
+then enforces the current non-null constraints. `sys_conf` and `entity.type`
+are added only as prior-Phase-4 prerequisites; the runtime still never
+provisions principal values. No object references Hub, MFS, Finder, Desktop,
+Window Manager or a Team schema. The Phase 4.4 cross-site corrective pass
+reuses this complete closure: its historical `x-param-*` header parser
+validates against the existing cookie context query and adds no application
+authorization table, function or procedure.

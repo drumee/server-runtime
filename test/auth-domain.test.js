@@ -288,8 +288,11 @@ test("session principals keep nobody, guest, OTP and authentication state distin
       ident: "guest",
       nobody_id: NOBODY_UID,
       guest_id: "phase4guest00001",
-      status: "guest",
-      signed_in: 0
+      // The guest is deliberately `ok`: unsigned state must be derived from
+      // the provisioned guest identity, not an artificial guest status.
+      status: "ok",
+      signed_in: 0,
+      guest_configured: 1
     }],
     ["system-session-0000001", {
       session_id: "system-session-0000001",
@@ -327,9 +330,37 @@ test("session principals keep nobody, guest, OTP and authentication state distin
   assert.equal(otp.status(), "otp");
   assert.equal(guest.identity().id, "phase4guest00001");
   assert.equal(guest.isGuest(), true);
+  assert.equal(guest.isAuthenticated(), false);
   assert.notEqual(guest.identity().id, anonymous.identity().id);
   assert.equal(system.principal().kind, "system");
   assert.notEqual(system.identity().id, anonymous.identity().id);
+});
+
+test("a missing or inconsistent guest configuration fails authentication closed", async () => {
+  const missingGuest = {
+    ...drumateContext("missing-guest-session-0001", { status: "ok", signed_in: 1 }),
+    guest_id: null,
+    guest_configured: 0
+  };
+  const inconsistentGuest = {
+    ...drumateContext("inconsistent-guest-session-01", { status: "ok", signed_in: 1 }),
+    guest_id: NOBODY_UID,
+    guest_configured: 0
+  };
+  const manager = new SessionManager({
+    store: {
+      async signin() {},
+      async resolveSession() { return null; },
+      async resolveSessionContext(sid) {
+        return sid === missingGuest.session_id ? missingGuest : inconsistentGuest;
+      }
+    }
+  });
+  const missing = await manager.fromSessionId(missingGuest.session_id);
+  const inconsistent = await manager.fromSessionId(inconsistentGuest.session_id);
+  assert.equal(missing.principal().kind, "drumate");
+  assert.equal(missing.isAuthenticated(), false);
+  assert.equal(inconsistent.isAuthenticated(), false);
 });
 
 test("legacy NULL uid contexts are repaired to the provisioned nobody principal without resetting OTP", async () => {
