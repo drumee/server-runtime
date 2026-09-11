@@ -69,7 +69,10 @@ BEGIN
     ALTER TABLE authn ADD COLUMN ctime int(11) unsigned NOT NULL DEFAULT 0;
     ALTER TABLE authn MODIFY COLUMN ctime int(11) unsigned NOT NULL;
   ELSEIF _authn_ctime_nullable = 'YES' THEN
-    UPDATE authn SET ctime = UNIX_TIMESTAMP() WHERE ctime IS NULL;
+    -- A NULL creation time has unknown age. OTAKs are transient credentials,
+    -- so fail closed rather than accidentally making an old token valid at
+    -- upgrade time.
+    DELETE FROM authn WHERE ctime IS NULL;
     ALTER TABLE authn MODIFY COLUMN ctime int(11) unsigned NOT NULL;
   END IF;
 

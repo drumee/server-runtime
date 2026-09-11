@@ -14,6 +14,7 @@ const {
   SessionManager,
   SESSION_SELECTOR_HEADER,
   YellowPageStore,
+  corsHeaders,
   createAuthorizer
 } = require("../lib");
 const { scalarFunctionValue } = require("../lib/yellow-page-store");
@@ -148,6 +149,7 @@ test("real-session abstraction accepts credentials, creates regsid and never exp
   });
   assert.equal(Object.hasOwn(result, "session_id"), false);
   assert.match(session.responseHeaders()["set-cookie"], new RegExp(`^${SESSION_COOKIE}=`));
+  assert.equal(session.responseHeaders()[SESSION_COOKIE], "session-phase4-0001");
   assert.deepEqual(calls[0], { ensure: undefined });
   assert.deepEqual(calls[1], {
     uid: "phase4-auth@kernel.test",
@@ -270,9 +272,17 @@ test("bootstrap transport authorization ensures regsid then stores a non-regsid 
   assert.notEqual(result.token, session.sid);
   assert.equal(session.sid, "new-runtime-session-000000000000");
   assert.match(session.responseHeaders()["set-cookie"], /^regsid=/);
+  assert.equal(session.responseHeaders().regsid, session.sid);
   assert.deepEqual(calls[0], { operation: "ensure", sid: undefined });
   assert.deepEqual(calls[1].value, { id: session.sid, type: "session" });
   assert.equal(calls[1].token, result.token);
+});
+
+test("allowlisted cross-site bootstrap may read only the historical regsid response hand-off", () => {
+  const headers = corsHeaders({ headers: { origin: "https://app.external.test" } }, ["https://app.external.test"]);
+  assert.equal(headers["access-control-expose-headers"], "regsid");
+  assert.equal(headers["access-control-allow-origin"], "https://app.external.test");
+  assert.deepEqual(corsHeaders({ headers: { origin: "https://foreign.example" } }, ["https://app.external.test"]), {});
 });
 
 test("session principals keep nobody, guest, OTP and authentication state distinct", async () => {
