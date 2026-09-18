@@ -19,9 +19,10 @@ Hub scope, Hub shards, MFS, provisioning and Team router policy are excluded.
 The private `npm pack` artifact contains only the runtime executable closure:
 `lib/`, `acl/`, `service/`, `schemas/`, this README and provenance. It excludes
 tests, `sources/**`, Team code, build output and temporary artifacts. Its
-`schemas/SCHEMA_MANIFEST.json` deterministically lists the intrinsic Yellow
-Page base and WebSocket SQL in install order and their idempotent Phase 4.4
-upgrade entry point. Installing these SQL files does not provision an
+`schemas/SCHEMA_MANIFEST.json` is the executable contract that deterministically
+drives the intrinsic Yellow Page SQL install order and idempotent Phase 4.4
+upgrade entrypoints. Package identity, paths and files are validated before
+installation. Installing these SQL files does not provision an
 organisation or create `system`, `nobody` or `guest`; that remains an external
 organisation-provisioning responsibility.
 

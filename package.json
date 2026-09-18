@@ -2,7 +2,7 @@
   "name": "@drumee/server-runtime-extraction",
   "version": "0.0.0-phase4.5",
   "private": true,
-  "description": "Private Phase 4.4 runtime extraction workspace; not a public package or final repository boundary.",
+  "description": "Private Phase 4.5 runtime exportability extraction workspace; not a public package or final repository boundary.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
