@@ -1,11 +1,14 @@
-# Server runtime WebSocket schema provenance
+# Server runtime Phase 4/4.4 schema provenance
 
-This is the narrow Phase 4.4 Yellow Page closure owned by the transitional
-`@drumee/server-runtime` extraction workspace. It is not yet a package
-migration/version manager; Phase 4.5 owns that exportability work.
+This is the narrow Phase 4/4.4 Yellow Page closure owned by the transitional
+`@drumee/server-runtime-extraction` workspace. Phase 4.5 ships this exact
+closure in its private npm tarball and makes `SCHEMA_MANIFEST.json` its
+deterministic install/upgrade contract. It is not a general schema platform or
+a final package migration manager.
 
 | Target object | Historical evidence | Source SHA | Runtime responsibility | Direct dependencies | Excluded behavior |
 | --- | --- | --- | --- | --- | --- |
+| `yellow-page/phase4-schema.sql` | `sources/schemas/yellow_page/{tables,procedures}` narrow identity/session/Domain closure | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Identity, provisioned-principal configuration lookup, cookie session and Domain privilege base required by the runtime | organisation provisioning supplies system/nobody/guest values | Hub, MFS, provisioning, Team policy |
 | `yellow-page/phase4.4-websocket.sql::authn` | `sources/schemas/yellow_page/tables/authn.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Persist opaque one-time OTAK → runtime session associations | Phase 4 `cookie`; `authn_store` | Hub, MFS, guest/share policy |
 | `session_ensure` | `sources/server-core/lib/input.js::{validCookie,_authorization}` plus `sources/schemas/yellow_page/procedures/session/session_check_cookie.sql` | `bf7c396b14614f247507f771f72e98184ed931b4`; `cb838e255600a4ec3797dc7ac13659ad9d187421` | Allocate or retain a persisted anonymous/authenticated runtime `regsid` context | `cookie`, `uniqueId` | Hub lookup, MFS token, organisation/support, DMZ/guest policy |
 | `authn_store` | `sources/schemas/yellow_page/procedures/session/authorization/authn_store.sql` | `cb838e255600a4ec3797dc7ac13659ad9d187421` | Persist the historical `token,value` OTAK record | `authn` | HTTP header parsing, Hub-area policy |

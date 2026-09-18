@@ -1,13 +1,37 @@
 {
-  "name": "server-runtime-yellow-page-websocket",
-  "phase": "4.4",
-  "owner": "@drumee/server-runtime",
-  "requires": [
-    "target/os/schemas/yellow-page-auth/phase4-schema.sql"
+  "manifestVersion": 1,
+  "name": "server-runtime-yellow-page-runtime",
+  "phase": "4.5",
+  "owner": "@drumee/server-runtime-extraction",
+  "packageVersion": "0.0.0-phase4.5",
+  "schemaVersion": "phase4.5-runtime-schema-1",
+  "install": [
+    {
+      "order": 10,
+      "path": "schemas/yellow-page/phase4-schema.sql",
+      "identity": "phase4-yellow-page-session-domain-v1",
+      "purpose": "identity/session/domain base closure"
+    },
+    {
+      "order": 20,
+      "path": "schemas/yellow-page/phase4.4-websocket.sql",
+      "identity": "phase4.4-websocket-session-upgrade-v1",
+      "purpose": "OTAK, socket and idempotent Phase 4.4 upgrade closure"
+    }
   ],
+  "upgrade": {
+    "from": ["phase4.4"],
+    "entrypoints": [
+      "schemas/yellow-page/phase4-schema.sql",
+      "schemas/yellow-page/phase4.4-websocket.sql"
+    ],
+    "idempotent": true,
+    "legacyOtakPolicy": "invalidate unknown-age and pre-ctime OTAKs"
+  },
   "objects": {
-    "tables": ["authn", "socket"],
-    "procedures": ["session_ensure", "authn_store", "socket_bind", "socket_get", "socket_free", "socket_list_session", "socket_refresh"]
+    "tables": ["domain", "sys_conf", "entity", "drumate", "cookie", "privilege", "authn", "socket"],
+    "functions": ["uniqueId", "domain_permission"],
+    "procedures": ["session_signin", "session_ensure", "authn_store", "socket_bind", "socket_get", "socket_free", "socket_list_session", "socket_refresh"]
   },
   "excluded": ["Hub", "MFS", "conference", "presence"]
 }

@@ -110,7 +110,7 @@ test("Phase 4 target SQL retains the historical domain_permission bitmask expres
     "utf8"
   );
   const target = fs.readFileSync(
-    path.join(root, "target/os/schemas/yellow-page-auth/phase4-schema.sql"),
+    path.join(root, "target/foundation/server-runtime/schemas/yellow-page/phase4-schema.sql"),
     "utf8"
   );
   const bitmask = /SELECT\s+privilege\s*&\s*_perm\s+FROM\s+privilege/i;
