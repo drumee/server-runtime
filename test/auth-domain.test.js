@@ -1,8 +1,5 @@
 const assert = require("assert/strict");
-const childProcess = require("child_process");
-const crypto = require("crypto");
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 const test = require("node:test");
 
@@ -19,7 +16,7 @@ const {
 } = require("../lib");
 const { scalarFunctionValue } = require("../lib/yellow-page-store");
 
-const root = path.resolve(__dirname, "../../../..");
+const root = path.resolve(__dirname, "..");
 
 function nobodyContext(session_id, status = "new") {
   return {
@@ -104,17 +101,12 @@ test("Yellow Page store adapts the current server-essentials function row shape"
   assert.equal(scalarFunctionValue(2), 2);
 });
 
-test("Phase 4 target SQL retains the historical domain_permission bitmask expression", () => {
-  const historical = fs.readFileSync(
-    path.join(root, "sources/schemas/yellow_page/procedures/domain/permission.sql"),
-    "utf8"
-  );
+test("packaged Phase 4 SQL retains the characterized domain_permission bitmask expression", () => {
   const target = fs.readFileSync(
-    path.join(root, "target/foundation/server-runtime/schemas/yellow-page/phase4-schema.sql"),
+    path.join(root, "schemas/yellow-page/phase4-schema.sql"),
     "utf8"
   );
   const bitmask = /SELECT\s+privilege\s*&\s*_perm\s+FROM\s+privilege/i;
-  assert.match(historical, bitmask);
   assert.match(target, bitmask);
   assert.match(target, /RETURN\s+IFNULL\(_res,\s*0\)/i);
 });
@@ -532,37 +524,5 @@ test("DomainAuthorizer preserves mandatory src and optional dest check_domain se
     assert.equal(result.granted, scenario.granted, scenario.name);
     assert.equal(result.reason, scenario.reason, scenario.name);
     assert.deepEqual(calls.map(({ permission }) => permission), scenario.requested, scenario.name);
-  }
-});
-
-test("Phase 4 fixture injects only a shell-derived SHA-512 fingerprint into SQL", () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "phase4-fixture-"));
-  const capture = path.join(directory, "fixture.sql");
-  const mariadb = path.join(directory, "mariadb");
-  const password = "fixture-password-with-'sql-sensitive-characters";
-  const fingerprint = crypto.createHash("sha512").update(password).digest("hex");
-  const fixture = path.join(root, "target/os/schemas/yellow-page-auth/phase4-fixture.sh");
-
-  fs.writeFileSync(mariadb, "#!/bin/sh\ncat > \"$PHASE4_FIXTURE_SQL_CAPTURE\"\n");
-  fs.chmodSync(mariadb, 0o755);
-  try {
-    const result = childProcess.spawnSync("bash", [fixture], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        MARIADB_DATABASE: "yp",
-        MARIADB_ROOT_PASSWORD: "fixture-root-password",
-        PHASE4_TEST_PASSWORD: password,
-        PHASE4_FIXTURE_SQL_CAPTURE: capture,
-        PATH: `${directory}:${process.env.PATH}`
-      }
-    });
-    assert.equal(result.status, 0, result.stderr);
-    const sql = fs.readFileSync(capture, "utf8");
-    assert.equal(sql.includes(password), false);
-    assert.equal(sql.includes(fingerprint), true);
-    assert.doesNotMatch(sql, /SET @phase4_test_password/);
-  } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
   }
 });

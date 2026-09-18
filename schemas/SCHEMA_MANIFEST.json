@@ -2,8 +2,8 @@
   "manifestVersion": 1,
   "name": "server-runtime-yellow-page-runtime",
   "phase": "4.5",
-  "owner": "@drumee/server-runtime-extraction",
-  "packageVersion": "0.0.0-phase4.5",
+  "owner": "@drumee/server-runtime",
+  "packageVersion": "0.1.0-alpha.1",
   "schemaVersion": "phase4.5-runtime-schema-1",
   "install": [
     {

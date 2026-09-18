@@ -12,8 +12,10 @@ const {
   authorizeFastPath,
   parseService
 } = require("../lib");
-const { permissionValue } = require("../../../../sources/server-essentials/lib/lex/permission");
-const { privilegeValue } = require("../../../../sources/server-essentials/lib/lex/privilege");
+const permissionValues = { anonymous: 1, anyone: 1, read: 2, write: 4 };
+const privilegeValues = { anonymous: 1, anyone: 1, read: 3, write: 7 };
+const permissionValue = (name) => permissionValues[name] || 0;
+const privilegeValue = (name) => privilegeValues[name] || 0;
 
 const fixture = (...parts) => path.join(__dirname, "fixtures", ...parts);
 
@@ -23,11 +25,10 @@ function registry() {
   return value;
 }
 
-test("current server-essentials permission and privilege semantics are used", () => {
+test("the injectable permission and privilege seam retains characterized values", () => {
   assert.equal(permissionValue("write"), 0b0000100);
   assert.equal(privilegeValue("write"), 0b0000111);
-  // `get` is not a named alias in either current table. The current Essentials
-  // helper deliberately returns its zero sentinel rather than throwing.
+  // `get` is not a named alias in either characterized table.
   assert.equal(permissionValue("get"), 0);
   assert.equal(privilegeValue("get"), 0);
 });

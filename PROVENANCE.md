@@ -1,7 +1,31 @@
 # Provenance — server-runtime
 
-This workspace is a symbol-level extraction, not a directory copy. The source
-SHA references the immutable imports recorded in `SOURCE_MANIFEST.md`.
+## Repository extraction
+
+```text
+Source repository:          drumee/transient
+Local source repository:    ~/github/transient
+Extraction source commit:   e3f4468d3ea882baeee4c7fefbd956aca4128d28
+Original path:              target/foundation/server-runtime
+Technique:                  git subtree split in a disposable clone
+```
+
+The split rewrites commit identities. Commits in this repository's extracted
+history are not presented as original transient SHAs. The validated Phase 4.5
+lineage in the source repository is:
+
+```text
+e17a714ad3bf2717d58f723af71ca77265f8498d  Lock Phase 4.5 runtime exportability
+0e70b7cd685c4a122ce70e5cfff60b7b788789ae  Finalize Phase 4.5 exportability contract
+7401aeafb70a90ba1b581e93d3b763801c50535a  Make Phase 4.5 source immutability gate portable
+e3f4468d3ea882baeee4c7fefbd956aca4128d28  Document platform bootstrap invariants for Phase 4.6
+```
+
+## Symbol provenance
+
+This runtime is a symbol-level extraction, not a broad source-directory copy.
+The source SHAs below reference immutable imports recorded in transient's
+`SOURCE_MANIFEST.md`.
 
 | New responsibility | Source evidence | Source SHA | Intentional Phase 2 boundary/difference |
 |---|---|---|---|

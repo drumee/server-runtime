@@ -1,10 +1,9 @@
 # Server runtime Phase 4/4.4 schema provenance
 
-This is the narrow Phase 4/4.4 Yellow Page closure owned by the transitional
-`@drumee/server-runtime-extraction` workspace. Phase 4.5 ships this exact
-closure in its private npm tarball and makes `SCHEMA_MANIFEST.json` its
-deterministic install/upgrade contract. It is not a general schema platform or
-a final package migration manager.
+This is the narrow Phase 4/4.4 Yellow Page closure owned by
+`@drumee/server-runtime`. Phase 4.5 ships this exact closure in its npm tarball
+and makes `SCHEMA_MANIFEST.json` its deterministic install/upgrade contract. It
+is not a general schema platform or a platform provisioning manager.
 
 | Target object | Historical evidence | Source SHA | Runtime responsibility | Direct dependencies | Excluded behavior |
 | --- | --- | --- | --- | --- | --- |
