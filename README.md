@@ -2,8 +2,8 @@
 
 Drumee minimal backend runtime. This is a pre-release CommonJS API extracted
 from the validated Phase 4.5 minimal-kernel boundary. It is application-neutral
-and remains private during R0; it is not yet published to npm and does not claim
-stable API compatibility.
+and prepared for a public prerelease under the `next` dist-tag; it is not yet
+published to npm and does not claim stable API compatibility.
 
 The runtime owns request/session context, Domain authorization, descriptor
 discovery, `module.method` dispatch, lazy worker loading, frontend plugin
@@ -39,9 +39,9 @@ It does not create or silently repair them.
 
 ## Non-goals
 
-R0 does not add platform bootstrap, provisioning, MFS, Hub/resource ACL,
-Finder, Window Manager, Marketing, Team migration, ESM, Debian packaging or
-npm publication.
+This prerelease does not add platform bootstrap, provisioning, MFS,
+Hub/resource ACL, Finder, Window Manager, Marketing, Team migration, ESM or
+Debian packaging.
 
 ## Provenance
 

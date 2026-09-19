@@ -1,8 +1,18 @@
 {
   "name": "@drumee/server-runtime",
   "version": "0.1.0-alpha.1",
-  "private": true,
+  "private": false,
   "description": "Drumee minimal backend runtime. Pre-release API extracted from the validated Phase 4.5 minimal-kernel boundary.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drumee/server-runtime.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "next",
+    "registry": "https://registry.npmjs.org/"
+  },
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
