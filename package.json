@@ -34,6 +34,6 @@
     "websocket": "1.0.35"
   },
   "scripts": {
-    "test": "node --test test/artifact.test.js test/auth-domain.test.js test/schema-manifest.test.js test/server-runtime.test.js test/websocket-push.test.js"
+    "test": "node --test test/artifact.test.js test/auth-domain.test.js test/mfs-authorization.test.js test/schema-manifest.test.js test/server-runtime.test.js test/websocket-push.test.js"
   }
 }

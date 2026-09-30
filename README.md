@@ -5,10 +5,19 @@ from the validated Phase 4.5 minimal-kernel boundary. It is application-neutral
 and prepared for a public prerelease under the `next` dist-tag; it is not yet
 published to npm and does not claim stable API compatibility.
 
-The runtime owns request/session context, Domain authorization, descriptor
+The runtime owns request/session context, Domain authorization, generic
+descriptor-driven MFS authorization orchestration, descriptor
 discovery, `module.method` dispatch, lazy worker loading, frontend plugin
 resolution, WebSocket authentication/routing and its intrinsic Yellow Page SQL
-closure. It does not own Hub, MFS, Team policy or application behavior.
+closure. MFS authorization is dependency-injected: runtime compares descriptor
+requirements with effective privileges supplied by an application backend; it
+does not import MFS storage or SQL. It does not own Hub, MFS business behavior,
+Team policy or application behavior.
+
+The HTTP adapter normalizes the historical logical `/vdo/` routes to the known
+`video.master`, `video.stream` and `video.segment` services. `RuntimeOutput`
+keeps structured/control output and header-only internal redirects explicit;
+large payload delivery remains outside the Node data plane.
 
 ## Development
 
