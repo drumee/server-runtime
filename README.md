@@ -19,6 +19,12 @@ The HTTP adapter normalizes the historical logical `/vdo/` routes to the known
 keeps structured/control output and header-only internal redirects explicit;
 large payload delivery remains outside the Node data plane.
 
+Hosts may explicitly configure a bounded binary-upload service. The runtime
+authorizes its query metadata before reading the body, optionally applies an
+owner preflight, streams `application/octet-stream` into a server-generated
+tempfile with backpressure and a hard byte limit, and deletes any unclaimed
+tempfile after dispatch. Generic structured JSON remains limited to 64 KiB.
+
 ## Development
 
 Node.js 18 or newer is required.
