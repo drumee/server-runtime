@@ -432,7 +432,7 @@ test("scope domain uses domain_permission and does not activate a hub branch", a
   assert.deepEqual(allowed, { granted: true, mode: "domain", procedure: "domain_permission" });
   assert.equal(denied.granted, false);
   assert.equal(denied.reason, "AUTHENTICATION_REQUIRED");
-  assert.deepEqual(deferredHub, { granted: false, mode: "unsupported", reason: "UNSUPPORTED_PERMISSION_SCOPE" });
+  assert.deepEqual(deferredHub, { granted: false, mode: "hub", reason: "HUB_AUTHORIZER_REQUIRED" });
   assert.deepEqual(calls, [{ uid: "phase4authuser01", domainId: 41, permission: 2 }]);
 });
 

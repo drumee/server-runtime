@@ -5,14 +5,17 @@ from the validated Phase 4.5 minimal-kernel boundary. It is application-neutral
 and prepared for a public prerelease under the `next` dist-tag; it is not yet
 published to npm and does not claim stable API compatibility.
 
-The runtime owns request/session context, Domain authorization, generic
+The runtime owns request/session context, Domain and Hub authorization, generic
 descriptor-driven MFS authorization orchestration, descriptor
 discovery, `module.method` dispatch, lazy worker loading, frontend plugin
 resolution, WebSocket authentication/routing and its intrinsic Yellow Page SQL
-closure. MFS authorization is dependency-injected: runtime compares descriptor
-requirements with effective privileges supplied by an application backend; it
-does not import MFS storage or SQL. It does not own Hub, MFS business behavior,
-Team policy or application behavior.
+closure. Hub lifecycle resolution and MFS authorization are dependency-injected:
+runtime validates the authenticated principal, resolves opaque Hub selections,
+checks each source and destination independently, compares requested permission
+bits with effective privileges, and injects authoritative `hub_context` values
+before worker construction. It imports neither lifecycle nor MFS storage SQL.
+It does not own Hub lifecycle, MFS business behavior, Team policy or application
+behavior.
 
 The HTTP adapter normalizes the historical logical `/vdo/` routes to the known
 `video.master`, `video.stream` and `video.segment` services. `RuntimeOutput`
@@ -54,8 +57,9 @@ It does not create or silently repair them.
 
 ## Non-goals
 
-This prerelease does not add platform bootstrap, provisioning, MFS,
-Hub/resource ACL, Finder, Window Manager, Marketing, Team migration, ESM or
+Version `0.1.0-alpha.2` is prepared locally for Phase 4.9 and is not published
+by this work. It does not add platform bootstrap, Hub lifecycle, the MFS
+implementation, Finder, Window Manager, Marketing, Team migration, ESM or
 Debian packaging.
 
 ## Provenance

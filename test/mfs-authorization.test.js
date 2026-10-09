@@ -14,8 +14,9 @@ test("runtime owns MFS permission comparison and fails closed", async () => {
     resources({ input }) { return { src: input.sources || [input.node], dest: input.destination ? [input.destination] : [] }; },
     effectivePermission(actor, node) { calls.push([actor, node]); return node === destination ? 4 : 9; }
   };
-  const authorize = createAuthorizer({ mfsPermissionBackend: backend });
-  const resolved = { service: "mfs.move", permission: { scope: "mfs", src: 8, dest: 4 }, input: { sources: [source], destination }, session: { uid: () => uid } };
+  const hubAuthorizer = { async authorizeResource({ hub_id }) { return { granted: true, hub_context: { hub_id, authorized: true } }; } };
+  const authorize = createAuthorizer({ hubAuthorizer, mfsPermissionBackend: backend });
+  const resolved = { service: "mfs.move", requires: ["system-mfs"], permission: { scope: "mfs", src: 8, dest: 4 }, input: { sources: [source], destination }, session: { uid: () => uid } };
   assert.equal((await authorize(resolved)).granted, true);
   assert.deepEqual(calls.map(([actor]) => actor), [uid, uid]);
   assert.equal((await createAuthorizer()(resolved)).granted, false);

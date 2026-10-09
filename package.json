@@ -1,6 +1,6 @@
 {
   "name": "@drumee/server-runtime",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": false,
   "description": "Drumee minimal backend runtime. Pre-release API extracted from the validated Phase 4.5 minimal-kernel boundary.",
   "license": "AGPL-3.0-only",
@@ -34,6 +34,6 @@
     "websocket": "1.0.35"
   },
   "scripts": {
-    "test": "node --test test/artifact.test.js test/auth-domain.test.js test/binary-upload.test.js test/mfs-authorization.test.js test/schema-manifest.test.js test/server-runtime.test.js test/websocket-push.test.js"
+    "test": "node --test test/artifact.test.js test/auth-domain.test.js test/binary-upload.test.js test/hub-authorization.test.js test/mfs-authorization.test.js test/schema-manifest.test.js test/server-runtime.test.js test/websocket-push.test.js"
   }
 }
