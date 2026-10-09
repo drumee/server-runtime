@@ -72,7 +72,7 @@ test("packed server runtime is standalone, confined and dependency-complete", { 
   const install = loadSchemaEntries(installedRoot, "install");
   const upgrade = loadSchemaEntries(installedRoot, "upgrade");
   assert.equal(install.packageJson.name, "@drumee/server-runtime");
-  assert.equal(install.packageJson.version, "0.1.0-alpha.2");
+  assert.equal(install.packageJson.version, "0.1.0-alpha.3");
   assert.deepEqual(install.manifest.install.map((entry) => entry.order), [10, 20]);
   for (const filename of [...install.paths, ...upgrade.paths]) {
     const relative = path.relative(installedRoot, filename);

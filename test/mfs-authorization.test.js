@@ -46,3 +46,22 @@ test("RuntimeOutput limits byte writes to small control artifacts", () => {
   const large = { headersSent: false, writableEnded: false, writeHead() {}, end() {} };
   assert.throws(() => new RuntimeOutput({ response: large }).write(Buffer.alloc(1024 * 1024 + 1)), (error) => error.code === "OUTPUT_CONTROL_ARTIFACT_TOO_LARGE");
 });
+
+test("MFS requires system-mfs for absent, empty and additional descriptor requirements", async () => {
+  for (const requires of [undefined, [], ["fixture-schema", "system-mfs"]]) {
+    const calls = [];
+    const resolved = {
+      permission: { scope: "mfs", src: 2, dest: 4 },
+      input: { sources: [source], destination },
+      session: { uid: () => uid }
+    };
+    if (requires !== undefined) resolved.requires = requires;
+    const result = await createAuthorizer({
+      hubAuthorizer: { async authorizeResource(request) { calls.push(request); return { granted: true, hub_context: { hub_id: request.hub_id } }; } },
+      mfsPermissionBackend: { resources: ({ input }) => ({ src: input.sources, dest: [input.destination] }), effectivePermission: () => 63 }
+    })(resolved);
+    assert.equal(result.granted, true);
+    const expected = requires && requires.includes("fixture-schema") ? ["system-mfs", "fixture-schema"] : ["system-mfs"];
+    assert.deepEqual(calls.map((call) => call.capabilities), [expected, expected]);
+  }
+});

@@ -17,6 +17,14 @@ before worker construction. It imports neither lifecycle nor MFS storage SQL.
 It does not own Hub lifecycle, MFS business behavior, Team policy or application
 behavior.
 
+For Hub-scoped services, readiness requirements are the deduplicated union of
+descriptor-level `requires`, service-level `requires`, and explicit permission
+capabilities. They are resolved against every authorized Hub context before a
+global capability provider is consulted and before the Worker is constructed.
+Platform availability and per-Hub schema readiness are separate decisions. For
+MFS scope, `system-mfs` is always required even when `requires` is absent or an
+empty list; additional requirements are additive.
+
 The HTTP adapter normalizes the historical logical `/vdo/` routes to the known
 `video.master`, `video.stream` and `video.segment` services. `RuntimeOutput`
 keeps structured/control output and header-only internal redirects explicit;
@@ -57,7 +65,7 @@ It does not create or silently repair them.
 
 ## Non-goals
 
-Version `0.1.0-alpha.2` is prepared locally for Phase 4.9 and is not published
+Version `0.1.0-alpha.3` is prepared locally for the Phase 4.9 corrections and is not published
 by this work. It does not add platform bootstrap, Hub lifecycle, the MFS
 implementation, Finder, Window Manager, Marketing, Team migration, ESM or
 Debian packaging.

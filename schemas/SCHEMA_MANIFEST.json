@@ -3,7 +3,7 @@
   "name": "server-runtime-yellow-page-runtime",
   "phase": "4.5",
   "owner": "@drumee/server-runtime",
-  "packageVersion": "0.1.0-alpha.2",
+  "packageVersion": "0.1.0-alpha.3",
   "schemaVersion": "phase4.5-runtime-schema-1",
   "install": [
     {

@@ -78,3 +78,36 @@ test("anonymous, intermediate, nobody and unknown Hub permission fail closed", a
   assert.equal((await authorizer.authorizeResource({ ...request, session: { ...session(), identity: () => ({ id: "ffffffffffffffff", domainId: 41, kind: "nobody" }) } })).reason, "HUB_PRINCIPAL_INVALID");
   assert.equal((await authorizer.authorizeResource({ ...request, asked_permission: 64, session: session() })).reason, "HUB_PERMISSION_INVALID");
 });
+
+test("Hub service requirements are checked per Hub before global providers and Worker construction", async () => {
+  const registry = new DescriptorRegistry({ permissionValue });
+  registry.registerDescriptor("fixture", {
+    modules: { private: "service/fixture.js" },
+    requires: ["platform-only"],
+    services: { probe: { scope: "hub", requires: ["hub-schema"], permission: { src: "read", capabilities: ["permission-schema"] } } }
+  }, { workdir: "/trusted" });
+  const readiness = new Map([["b000000000000002", false], ["c000000000000003", true]]);
+  const resolver = {
+    async resolveAuthorized(request) {
+      assert.deepEqual(request.capabilities, ["permission-schema", "platform-only", "hub-schema"]);
+      if (!readiness.get(request.hub_id)) throw Object.assign(new Error("not ready"), { code: "HUB_CAPABILITY_NOT_READY" });
+      return { hub_id: request.hub_id, authorized: true };
+    }
+  };
+  let provider_calls = 0;
+  let constructions = 0;
+  class Worker { constructor() { constructions++; } probe() { return "ok"; } }
+  const dispatcher = new ServiceDispatcher({
+    registry,
+    authorize: createAuthorizer({ hubAuthorizer: new HubAuthorizer({ resolver, permissionValue }) }),
+    capability_resolver: new CapabilityResolver({ providers: { "platform-only": async () => (provider_calls++, true), "hub-schema": async () => (provider_calls++, true) } }),
+    requireWorker: () => Worker
+  });
+  await assert.rejects(() => dispatcher.dispatch({ service: "fixture.probe", session: session(), input: { hub_id: "b000000000000002" } }), (error) => error.code === "PERMISSION_DENIED");
+  assert.equal(provider_calls, 0);
+  assert.equal(constructions, 0);
+  readiness.set("b000000000000002", true);
+  assert.equal(await dispatcher.dispatch({ service: "fixture.probe", session: session(), input: { hub_id: "b000000000000002" } }), "ok");
+  assert.equal(await dispatcher.dispatch({ service: "fixture.probe", session: session(), input: { hub_id: "c000000000000003" } }), "ok");
+  assert.equal(constructions, 2);
+});

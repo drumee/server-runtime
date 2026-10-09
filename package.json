@@ -1,6 +1,6 @@
 {
   "name": "@drumee/server-runtime",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "private": false,
   "description": "Drumee minimal backend runtime. Pre-release API extracted from the validated Phase 4.5 minimal-kernel boundary.",
   "license": "AGPL-3.0-only",
